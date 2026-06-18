@@ -15,9 +15,20 @@ import { useNavigate } from 'react-router-dom';
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { init: initBilling, rates, tables, todayStats, sessions } = useBillingStore();
+  const { init: initBilling, rates, tables, bills, sessions } = useBillingStore();
   const { init: initQueue, getSortedQueue, currentCall, refreshPriorities, addToQueue } = useQueueStore();
   const { init: initMember, members, findMemberByPhone } = useMemberStore();
+  
+  const today = new Date().toDateString();
+  const todayBills = bills.filter(b => 
+    new Date(b.createdAt).toDateString() === today && b.paymentStatus === 'paid'
+  );
+  const todayStats = {
+    revenue: Math.round(todayBills.reduce((sum, b) => sum + b.totalAmount, 0) * 100) / 100,
+    billsCount: todayBills.length,
+    occupiedTables: tables.filter(t => t.status === 'occupied').length,
+    availableTables: tables.filter(t => t.status === 'available').length,
+  };
   const [showAddModal, setShowAddModal] = useState(false);
   const [formData, setFormData] = useState({
     customerName: '',

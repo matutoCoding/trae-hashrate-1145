@@ -31,7 +31,9 @@ interface BillingState {
     customerId: string;
   }, cueRentals?: CueRental[]) => BillingSession | null;
   
-  endSession: (sessionId: string) => Bill | null;
+  endSession: (sessionId: string, paymentInfo?: {
+    paymentMethod: 'cash' | 'wechat' | 'alipay' | 'card';
+  }) => Bill | null;
   
   addCueRental: (sessionId: string, cueType: 'standard' | 'professional' | 'carbon', quantity: number) => void;
   removeCueRental: (sessionId: string, rentalId: string) => void;
@@ -162,12 +164,19 @@ export const useBillingStore = create<BillingState>((set, get) => ({
     return session;
   },
   
-  endSession: (sessionId) => {
+  endSession: (sessionId, paymentInfo) => {
     const session = get().getSessionById(sessionId);
     if (!session || session.status !== 'active') return null;
     
     const endTime = roundUpToNearestMinute(new Date());
-    const bill = get().generateBill(session, endTime);
+    const generatedBill = get().generateBill(session, endTime);
+    
+    const paidBill: Bill = {
+      ...generatedBill,
+      paymentStatus: paymentInfo ? 'paid' as const : 'pending' as const,
+      paymentMethod: paymentInfo?.paymentMethod,
+      paidAt: paymentInfo ? new Date() : undefined,
+    };
     
     const sessions = get().sessions.map(s =>
       s.id === sessionId
@@ -181,14 +190,14 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         : t
     );
     
-    const bills = [bill, ...get().bills];
+    const bills = [paidBill, ...get().bills];
     
     set({ sessions, tables, bills });
     saveToStorage(STORAGE_KEYS.SESSIONS, sessions);
     saveToStorage(STORAGE_KEYS.TABLES, tables);
     saveToStorage(STORAGE_KEYS.BILLS, bills);
     
-    return bill;
+    return paidBill;
   },
   
   addCueRental: (sessionId, cueType, quantity) => {

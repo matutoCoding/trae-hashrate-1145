@@ -44,27 +44,22 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     
     await new Promise(resolve => setTimeout(resolve, 800));
     
-    const updatedBill = {
-      ...bill,
+    const paidBill = endSession(session.id, {
       paymentMethod,
-      paymentStatus: 'paid' as const,
-    };
-    
-    endSession(session.id);
-    updateBill(bill.id, {
-      paymentMethod,
-      paymentStatus: 'paid',
     });
     
-    if (session.isVip && session.customerId) {
-      updateMemberSpending(session.customerId, bill.totalAmount);
+    if (paidBill) {
+      if (session.isVip && session.customerId) {
+        updateMemberSpending(session.customerId, paidBill.totalAmount);
+      }
+      setBill(paidBill);
     }
     
     setIsProcessing(false);
     setIsComplete(true);
     
     setTimeout(() => {
-      onComplete?.(updatedBill);
+      onComplete?.(paidBill ?? bill);
       onClose();
     }, 2000);
   };

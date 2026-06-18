@@ -5,7 +5,7 @@ import { BottomNav } from '../components/layout/BottomNav';
 import { Modal } from '../components/ui/Modal';
 import { useBillingStore } from '../stores/billingStore';
 import { Bill } from '../types';
-import { FileText, Clock, Table2, Crown, DollarSign, Calendar, ChevronDown, Search, Filter, ArrowLeft, ArrowRight, Receipt, Percent, Download, Share2, User } from 'lucide-react';
+import { FileText, Clock, Table2, Crown, DollarSign, Calendar, ChevronDown, Search, Filter, ArrowLeft, ArrowRight, Receipt, Percent, Download, Share2, User, CheckCircle2, AlertCircle, Wallet, Smartphone } from 'lucide-react';
 import { formatDateTime, formatDuration } from '../utils/time';
 import { memberLevelNames, memberLevelDiscounts } from '../data/mockData';
 
@@ -37,10 +37,15 @@ export const BillDetail: React.FC = () => {
     )
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-  const totalRevenue = filteredBills.reduce((sum, b) => sum + b.totalAmount, 0);
+  const totalRevenue = filteredBills
+    .filter(b => b.paymentStatus === 'paid')
+    .reduce((sum, b) => sum + b.totalAmount, 0);
   const totalTableFee = filteredBills.reduce((sum, b) => sum + b.tableFee, 0);
   const totalCueFee = filteredBills.reduce((sum, b) => sum + b.cueRentalFee, 0);
   const totalDiscount = filteredBills.reduce((sum, b) => sum + b.discountAmount, 0);
+
+  const paidCount = filteredBills.filter(b => b.paymentStatus === 'paid').length;
+  const unpaidCount = filteredBills.filter(b => b.paymentStatus === 'pending').length;
 
   const filterOptions = [
     { id: 'all' as const, label: '全部', count: bills.length },
@@ -84,11 +89,14 @@ export const BillDetail: React.FC = () => {
         >
           <div className="grid grid-cols-2 gap-3">
             <div className="card p-4">
-              <p className="text-xs text-dark-300 mb-1">订单总数</p>
-              <p className="text-2xl font-bold text-white font-mono">{filteredBills.length}</p>
+              <p className="text-xs text-dark-300 mb-1">已支付订单</p>
+              <p className="text-2xl font-bold text-white font-mono">{paidCount}</p>
+              {unpaidCount > 0 && (
+                <p className="text-xs text-accent-400 mt-1">待支付 {unpaidCount} 笔</p>
+              )}
             </div>
             <div className="card p-4">
-              <p className="text-xs text-dark-300 mb-1">总营收</p>
+              <p className="text-xs text-dark-300 mb-1">已收营收</p>
               <p className="text-2xl font-bold text-gold-400 font-mono">¥{totalRevenue.toFixed(2)}</p>
             </div>
             <div className="card p-4">
@@ -162,8 +170,21 @@ export const BillDetail: React.FC = () => {
                           {bill.isVip && (
                             <Crown className="w-3.5 h-3.5 text-gold-400" />
                           )}
+                          {bill.paymentStatus === 'paid' ? (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-primary-500/20 text-primary-400 text-xs font-medium">
+                              <CheckCircle2 className="w-3 h-3" />
+                              已支付
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-accent-500/20 text-accent-400 text-xs font-medium">
+                              <AlertCircle className="w-3 h-3" />
+                              待支付
+                            </span>
+                          )}
                         </div>
-                        <span className="text-lg font-bold text-gold-400 font-mono">
+                        <span className={`text-lg font-bold font-mono ${
+                          bill.paymentStatus === 'paid' ? 'text-gold-400' : 'text-dark-400'
+                        }`}>
                           ¥{bill.totalAmount.toFixed(2)}
                         </span>
                       </div>
@@ -226,7 +247,23 @@ export const BillDetail: React.FC = () => {
         {selectedBill && (
           <div className="space-y-4 pb-4">
             <div className="text-center py-4 bg-gradient-to-b from-primary-700/30 to-transparent rounded-2xl -mx-4 -mt-4 mb-4 border-b border-dark-600">
-              <div className="text-sm text-dark-400 mb-1">应付金额</div>
+              {selectedBill.paymentStatus === 'paid' ? (
+                <>
+                  <div className="inline-flex items-center gap-1.5 mb-2 px-3 py-1 rounded-full bg-primary-500/20">
+                    <CheckCircle2 className="w-4 h-4 text-primary-400" />
+                    <span className="text-sm font-medium text-primary-400">已支付</span>
+                  </div>
+                  <div className="text-sm text-dark-400 mb-1">实收金额</div>
+                </>
+              ) : (
+                <>
+                  <div className="inline-flex items-center gap-1.5 mb-2 px-3 py-1 rounded-full bg-accent-500/20">
+                    <AlertCircle className="w-4 h-4 text-accent-400" />
+                    <span className="text-sm font-medium text-accent-400">待支付</span>
+                  </div>
+                  <div className="text-sm text-dark-400 mb-1">应付金额</div>
+                </>
+              )}
               <div className="text-5xl font-bold text-gold-400 font-mono mb-2">
                 ¥{selectedBill.totalAmount.toFixed(2)}
               </div>
@@ -373,11 +410,57 @@ export const BillDetail: React.FC = () => {
             </div>
 
             <div className="card p-4">
-              <div className="flex justify-between items-center">
-                <span className="text-dark-300">支付方式</span>
-                <span className="text-white font-medium">
-                  {getPaymentMethodLabel(selectedBill.paymentMethod)}
-                </span>
+              <h4 className="font-bold text-white mb-3 flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-gold-400" />
+                支付信息
+              </h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between items-center">
+                  <span className="text-dark-300">支付状态</span>
+                  {selectedBill.paymentStatus === 'paid' ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary-500/20 text-primary-400 text-xs font-medium">
+                      <CheckCircle2 className="w-3 h-3" />
+                      已支付
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-accent-500/20 text-accent-400 text-xs font-medium">
+                      <AlertCircle className="w-3 h-3" />
+                      待支付
+                    </span>
+                  )}
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-dark-300">支付方式</span>
+                  <span className="text-white font-medium flex items-center gap-1">
+                    {selectedBill.paymentMethod ? (
+                      <>
+                        {(selectedBill.paymentMethod === 'wechat' || selectedBill.paymentMethod === 'alipay') && (
+                          <Smartphone className="w-3.5 h-3.5 text-primary-400" />
+                        )}
+                        {(selectedBill.paymentMethod === 'cash' || selectedBill.paymentMethod === 'card') && (
+                          <Wallet className="w-3.5 h-3.5 text-gold-400" />
+                        )}
+                        {getPaymentMethodLabel(selectedBill.paymentMethod)}
+                      </>
+                    ) : (
+                      <span className="text-dark-500">—</span>
+                    )}
+                  </span>
+                </div>
+                {selectedBill.paidAt && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-dark-300">支付时间</span>
+                    <span className="text-white font-mono">
+                      {formatDateTime(selectedBill.paidAt)}
+                    </span>
+                  </div>
+                )}
+                <div className="pt-2 mt-2 border-t border-dark-600 flex justify-between items-center">
+                  <span className="text-white font-bold">实收金额</span>
+                  <span className="text-2xl text-gold-400 font-bold font-mono">
+                    ¥{selectedBill.totalAmount.toFixed(2)}
+                  </span>
+                </div>
               </div>
             </div>
 
