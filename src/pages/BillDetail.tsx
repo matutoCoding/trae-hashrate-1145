@@ -184,7 +184,7 @@ export const BillDetail: React.FC = () => {
                         </span>
                         <span className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          {formatDuration(bill.durationMinutes * 60 * 1000)}
+                          {formatDuration(bill.durationMinutes)}
                         </span>
                       </div>
                     </div>
@@ -274,7 +274,7 @@ export const BillDetail: React.FC = () => {
                 <div className="flex justify-between">
                   <span className="text-dark-300">消费时长</span>
                   <span className="text-white font-mono">
-                    {formatDuration(selectedBill.durationMinutes * 60 * 1000)}
+                    {formatDuration(selectedBill.durationMinutes)}
                   </span>
                 </div>
               </div>
@@ -315,7 +315,7 @@ export const BillDetail: React.FC = () => {
                         ¥{segment.amount.toFixed(2)}
                       </div>
                       <div className="text-xs text-dark-400">
-                        {segment.durationMinutes}分钟 × ¥{segment.ratePerHour}/时
+                        {formatDuration(segment.durationMinutes)} × ¥{segment.ratePerHour}/时
                       </div>
                     </div>
                   </motion.div>

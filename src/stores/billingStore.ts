@@ -42,6 +42,8 @@ interface BillingState {
   
   generateBill: (session: BillingSession, endTime: Date) => Bill;
   
+  updateBill: (billId: string, updates: Partial<Bill>) => void;
+  
   todayStats: {
     revenue: number;
     billsCount: number;
@@ -235,11 +237,19 @@ export const useBillingStore = create<BillingState>((set, get) => ({
     return get().bills.find(b => b.id === billId);
   },
   
+  updateBill: (billId, updates) => {
+    const bills = get().bills.map(b =>
+      b.id === billId ? { ...b, ...updates } : b
+    );
+    set({ bills });
+    saveToStorage(STORAGE_KEYS.BILLS, bills);
+  },
+  
   generateBill: (session, endTime) => {
     const { rates } = get();
     const billingResult = calculateBillingSegments(session.startTime, endTime, rates);
     const cueRentalFee = calculateTotalCueRental(session.cueRentals, billingResult.totalDuration);
-    const tableFee = billingResult.totalAmount;
+    const tableFee = billingResult.segments.reduce((sum, s) => sum + s.amount, 0);
     const subTotal = tableFee + cueRentalFee;
     
     const discountRate = memberDiscountRates[session.memberLevel] || 1;

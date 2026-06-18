@@ -14,12 +14,18 @@ export const formatDate = (date: Date): string => {
 };
 
 export const formatDuration = (minutes: number): string => {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
+  const safeMinutes = Math.max(0, Math.floor(minutes));
+  const hours = Math.floor(safeMinutes / 60);
+  const mins = safeMinutes % 60;
   if (hours > 0) {
     return `${hours}小时${mins > 0 ? mins + '分钟' : ''}`;
   }
   return `${mins}分钟`;
+};
+
+export const formatDurationMs = (ms: number): string => {
+  const minutes = Math.max(0, Math.floor(ms / 60000));
+  return formatDuration(minutes);
 };
 
 export const formatDurationShort = (minutes: number): string => {

@@ -1,21 +1,32 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Header } from '../components/layout/Header';
 import { BottomNav } from '../components/layout/BottomNav';
 import { StatCard } from '../components/ui/StatCard';
+import { Modal } from '../components/ui/Modal';
 import { useBillingStore } from '../stores/billingStore';
 import { useQueueStore } from '../stores/queueStore';
 import { useMemberStore } from '../stores/memberStore';
-import { DollarSign, Table2, Users, Clock, TrendingUp, Crown, AlertTriangle } from 'lucide-react';
+import { QueueTableType } from '../types';
+import { DollarSign, Table2, Users, Clock, TrendingUp, Crown, AlertTriangle, UserPlus, Phone, User, Check, X } from 'lucide-react';
 import { getCurrentRate } from '../utils/billing';
-import { formatTime, formatDuration } from '../utils/time';
+import { formatTime, formatDurationMs } from '../utils/time';
 import { useNavigate } from 'react-router-dom';
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { init: initBilling, rates, tables, todayStats, sessions } = useBillingStore();
-  const { init: initQueue, getSortedQueue, currentCall, refreshPriorities } = useQueueStore();
-  const { init: initMember, members } = useMemberStore();
+  const { init: initQueue, getSortedQueue, currentCall, refreshPriorities, addToQueue } = useQueueStore();
+  const { init: initMember, members, findMemberByPhone } = useMemberStore();
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [formData, setFormData] = useState({
+    customerName: '',
+    phone: '',
+    tableType: 'any' as QueueTableType,
+    isVip: false,
+    memberLevel: 0,
+  });
+  const [memberFound, setMemberFound] = useState<any>(null);
 
   useEffect(() => {
     initBilling();
@@ -36,6 +47,49 @@ export const Dashboard: React.FC = () => {
   const occupiedTables = tables.filter(t => t.status === 'occupied').length;
   const availableTables = tables.filter(t => t.status === 'available').length;
   const activeSessions = sessions.filter(s => s.status === 'active');
+
+  const handlePhoneSearch = (phone: string) => {
+    setFormData({ ...formData, phone });
+    if (phone.length >= 11) {
+      const member = findMemberByPhone(phone);
+      if (member) {
+        setMemberFound(member);
+        setFormData(prev => ({
+          ...prev,
+          customerName: member.name,
+          isVip: true,
+          memberLevel: member.level,
+        }));
+      } else {
+        setMemberFound(null);
+      }
+    } else {
+      setMemberFound(null);
+    }
+  };
+
+  const handleAddToQueue = () => {
+    if (!formData.customerName || !formData.phone) return;
+
+    addToQueue({
+      customerName: formData.customerName,
+      phone: formData.phone,
+      customerPhone: formData.phone,
+      tableType: formData.tableType,
+      isVip: formData.isVip,
+      memberLevel: formData.memberLevel,
+    });
+
+    setShowAddModal(false);
+    setFormData({
+      customerName: '',
+      phone: '',
+      tableType: 'any' as QueueTableType,
+      isVip: false,
+      memberLevel: 0,
+    });
+    setMemberFound(null);
+  };
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -189,7 +243,7 @@ export const Dashboard: React.FC = () => {
             </motion.div>
           )}
 
-          {sortedQueue.length > 0 && (
+          {sortedQueue.length > 0 ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -250,6 +304,26 @@ export const Dashboard: React.FC = () => {
                 ))}
               </div>
             </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45 }}
+              className="card p-6 text-center"
+            >
+              <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-primary-500/10 flex items-center justify-center">
+                <Users className="w-8 h-8 text-primary-400" />
+              </div>
+              <h3 className="text-base font-bold text-white mb-1">暂无排队</h3>
+              <p className="text-dark-400 text-sm mb-4">当前无需排队，可直接开台消费</p>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="btn-primary inline-flex items-center gap-2"
+              >
+                <UserPlus className="w-4 h-4" />
+                取号排队
+              </button>
+            </motion.div>
           )}
 
           {activeSessions.length > 0 && (
@@ -286,7 +360,7 @@ export const Dashboard: React.FC = () => {
                     </div>
                     <div className="text-right">
                       <div className="text-gold-400 font-mono font-bold">
-                        {formatDuration(Date.now() - session.startTime.getTime())}
+                        {formatDurationMs(Date.now() - session.startTime.getTime())}
                       </div>
                     </div>
                   </div>
@@ -296,6 +370,110 @@ export const Dashboard: React.FC = () => {
           )}
         </motion.div>
       </main>
+
+      <Modal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title="取号排队"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm text-dark-300 mb-1.5">
+              <Phone className="w-3.5 h-3.5 inline mr-1" />
+              手机号
+            </label>
+            <input
+              type="tel"
+              maxLength={11}
+              value={formData.phone}
+              onChange={e => handlePhoneSearch(e.target.value.replace(/\D/g, ''))}
+              placeholder="请输入手机号查询会员"
+              className="input"
+            />
+            {memberFound && (
+              <div className="mt-2 p-3 bg-gold-500/10 border border-gold-500/30 rounded-xl flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gold-500 flex items-center justify-center">
+                  <Crown className="w-5 h-5 text-dark-900" />
+                </div>
+                <div>
+                  <p className="text-white font-medium flex items-center gap-2">
+                    {memberFound.name}
+                    <span className="text-xs text-gold-400">
+                      {memberFound.levelName}
+                    </span>
+                  </p>
+                  <p className="text-xs text-dark-400">VIP会员，可享受优先插队</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm text-dark-300 mb-1.5">
+              <User className="w-3.5 h-3.5 inline mr-1" />
+              顾客姓名
+            </label>
+            <input
+              type="text"
+              value={formData.customerName}
+              onChange={e => setFormData({ ...formData, customerName: e.target.value })}
+              placeholder="请输入顾客姓名"
+              className="input"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-dark-300 mb-1.5">
+              <Table2 className="w-3.5 h-3.5 inline mr-1" />
+              球台类型
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: 'any' as const, label: '不限类型' },
+                { id: 'american' as const, label: '美式' },
+                { id: 'snooker' as const, label: '斯诺克' },
+              ].map(option => (
+                <button
+                  key={option.id}
+                  onClick={() => setFormData({ ...formData, tableType: option.id })}
+                  className={`p-3 rounded-xl text-sm transition-all ${
+                    formData.tableType === option.id
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-dark-600 text-dark-200 hover:bg-dark-500'
+                  }`}
+                >
+                  <div className="font-medium">{option.label}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {formData.isVip && (
+            <div className="flex items-center gap-2 text-sm text-gold-400 bg-gold-500/10 p-3 rounded-xl">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              <span>VIP会员将按优先级自动插队到合适位置</span>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={() => setShowAddModal(false)}
+              className="btn-secondary flex-1 flex items-center justify-center gap-2"
+            >
+              <X className="w-4 h-4" />
+              取消
+            </button>
+            <button
+              onClick={handleAddToQueue}
+              className="btn-primary flex-1 flex items-center justify-center gap-2"
+              disabled={!formData.customerName || !formData.phone}
+            >
+              <Check className="w-4 h-4" />
+              确认取号
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <BottomNav />
     </div>

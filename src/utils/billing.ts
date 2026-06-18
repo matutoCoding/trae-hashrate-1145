@@ -21,8 +21,8 @@ export const calculateBillingSegments = (
     return { segments: [], totalAmount: 0, totalDuration: 0 };
   }
 
-  const sortedRates = [...rateSchedules].sort((a, b) => b.priority - a.priority);
-  const switchTimes = rateSchedules.map(r => r.startTime);
+  const enabledRates = rateSchedules.filter(r => r.enabled !== false);
+  const sortedRates = [...enabledRates].sort((a, b) => b.priority - a.priority);
 
   const getRateForTime = (time: Date): RateSchedule | null => {
     for (const rate of sortedRates) {
@@ -33,24 +33,28 @@ export const calculateBillingSegments = (
     return null;
   };
 
+  const allSwitchTimes = [...new Set(
+    enabledRates.flatMap(r => [r.startTime, r.endTime])
+  )].sort();
+
   const getSwitchPoints = (start: Date, end: Date): Date[] => {
-    const points: Date[] = [start];
-    let currentDate = new Date(start);
+    const points: Set<number> = new Set([start.getTime(), end.getTime()]);
+    let cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
     
-    while (currentDate <= end) {
-      for (const timeStr of switchTimes) {
-        const switchPoint = parseTimeStr(timeStr, currentDate);
-        if (isAfter(switchPoint, start) && isBefore(switchPoint, end)) {
-          points.push(switchPoint);
+    while (cursor <= endDay) {
+      for (const timeStr of allSwitchTimes) {
+        const switchPoint = parseTimeStr(timeStr, cursor);
+        if (switchPoint.getTime() > start.getTime() && switchPoint.getTime() < end.getTime()) {
+          points.add(switchPoint.getTime());
         }
       }
-      currentDate = addDays(currentDate, 1);
+      cursor = addDays(cursor, 1);
     }
     
-    points.push(end);
-    return [...new Set(points.map(d => d.getTime()))]
-      .map(t => new Date(t))
-      .sort((a, b) => a.getTime() - b.getTime());
+    return Array.from(points)
+      .sort((a, b) => a - b)
+      .map(t => new Date(t));
   };
 
   const switchPoints = getSwitchPoints(startTime, endTime);
@@ -63,20 +67,28 @@ export const calculateBillingSegments = (
     if (duration === 0) continue;
 
     const midTime = new Date((segmentStart.getTime() + segmentEnd.getTime()) / 2);
-    const rate = getRateForTime(midTime) || getRateForTime(segmentStart);
-
+    let rate = getRateForTime(midTime);
+    if (!rate) rate = getRateForTime(segmentStart);
+    if (!rate) rate = getRateForTime(new Date(segmentEnd.getTime() - 1));
     if (!rate) continue;
 
     const amount = (duration / 60) * rate.ratePerHour;
     const roundedAmount = Math.round(amount * 100) / 100;
+
+    const startDayOffset = segmentStart.getDate() !== startTime.getDate() 
+      ? `(${segmentStart.getMonth() + 1}/${segmentStart.getDate()}) ` 
+      : '';
+    const endDayOffset = segmentEnd.getDate() !== startTime.getDate() 
+      ? `(${segmentEnd.getMonth() + 1}/${segmentEnd.getDate()}) ` 
+      : '';
 
     segments.push({
       id: generateId(),
       rateId: rate.id,
       rateName: rate.name,
       ratePerHour: rate.ratePerHour,
-      startTime: segmentStart.toTimeString().slice(0, 5),
-      endTime: segmentEnd.toTimeString().slice(0, 5),
+      startTime: startDayOffset + segmentStart.toTimeString().slice(0, 5),
+      endTime: endDayOffset + segmentEnd.toTimeString().slice(0, 5),
       durationMinutes: duration,
       amount: roundedAmount,
       isPeak: rate.isPeak

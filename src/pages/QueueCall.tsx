@@ -210,7 +210,7 @@ export const QueueCall: React.FC = () => {
 
         <div className="flex gap-2 mb-4">
           <button
-            onClick={handleAddToQueue}
+            onClick={() => setShowAddModal(true)}
             className="btn-primary flex-1 flex items-center justify-center gap-2 py-3"
           >
             <UserPlus className="w-5 h-5" />
@@ -294,7 +294,7 @@ export const QueueCall: React.FC = () => {
             <h3 className="text-lg font-bold text-white mb-2">暂无排队</h3>
             <p className="text-dark-400 text-sm mb-6">当前无需排队，可直接开台消费</p>
             <button
-              onClick={handleAddToQueue}
+              onClick={() => setShowAddModal(true)}
               className="btn-primary inline-flex items-center gap-2"
             >
               <UserPlus className="w-4 h-4" />

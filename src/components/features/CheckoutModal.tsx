@@ -20,7 +20,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   session,
   onComplete,
 }) => {
-  const { generateBill, endSession } = useBillingStore();
+  const { generateBill, endSession, updateBill } = useBillingStore();
   const { updateMemberSpending } = useMemberStore();
   
   const [bill, setBill] = useState<Bill | null>(null);
@@ -51,6 +51,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     };
     
     endSession(session.id);
+    updateBill(bill.id, {
+      paymentMethod,
+      paymentStatus: 'paid',
+    });
     
     if (session.isVip && session.customerId) {
       updateMemberSpending(session.customerId, bill.totalAmount);
@@ -104,7 +108,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     <Clock className="w-3 h-3" />
                     <span>{formatTime(bill.startTime)} - {formatTime(bill.endTime)}</span>
                   </div>
-                  <span>{formatDuration(bill.durationMinutes * 60 * 1000)}</span>
+                  <span>{formatDuration(bill.durationMinutes)}</span>
                 </div>
               </div>
 
@@ -126,7 +130,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         <p className="text-sm text-white font-medium">{segment.rateName}</p>
                         <p className="text-xs text-dark-300">
                           {segment.startTime} - {segment.endTime}
-                          <span className="ml-2">({formatDuration(segment.durationMinutes * 60 * 1000)})</span>
+                          <span className="ml-2">({formatDuration(segment.durationMinutes)})</span>
                         </p>
                         <p className="text-xs text-dark-400">
                           ¥{segment.ratePerHour}/小时 × {(segment.durationMinutes / 60).toFixed(1)}小时
